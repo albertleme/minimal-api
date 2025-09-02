@@ -1,8 +1,20 @@
 using MinimalApi.Infraestrutura.Db;
 using MinimalApi.DTOs;
 using Microsoft.EntityFrameworkCore;
+using MinimalApi.Dominio.Interfaces;
+using MinimalApi.Dominio.Entidades;
+using MinimalApi.Dominio.Servicos;
+using Microsoft.AspNetCore.Mvc;
+using MinimalApi.Dominio.ModelViews;
 
+#region Builder
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
+builder.Services.AddScoped<IVeiculoServico, VeiculoServico>();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<DbContexto>(options =>
 {
@@ -13,14 +25,16 @@ builder.Services.AddDbContext<DbContexto>(options =>
 });
 
 var app = builder.Build();
+#endregion
 
+#region Home
+app.MapGet("/", () => Results.Json(new Home()));
+#endregion
 
-
-app.MapGet("/", () => "Olá, Mundo!");
-
-app.MapPost("/login", (MinimalApi.DTOs.LoginDTO loginDTO) =>
+#region Administradores
+app.MapPost("/administradores/login", ([FromBody] MinimalApi.DTOs.LoginDTO loginDTO, IAdministradorServico administradorServico) =>
 {
-    if (loginDTO.Email == "adm@teste.com" && loginDTO.Senha == "123456")
+    if (administradorServico.Login(loginDTO) != null)
     {
         return Results.Ok("Login com sucesso");
     }
@@ -29,5 +43,26 @@ app.MapPost("/login", (MinimalApi.DTOs.LoginDTO loginDTO) =>
         return Results.Unauthorized();
     }
 });
+#endregion
+
+#region Veiculos
+app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) =>
+{
+    var veiculo = new Veiculo
+    {
+        Nome = veiculoDTO.Nome,
+        Marca = veiculoDTO.Marca,
+        Ano = veiculoDTO.Ano
+    };
+    veiculoServico.Incluir(veiculo);
+
+    return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
+});
+#endregion
+
+#region App
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.Run();
+#endregion
